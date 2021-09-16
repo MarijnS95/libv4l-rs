@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::mem::MaybeUninit;
 use std::path::Path;
 use std::sync::Arc;
 use std::{io, mem};
@@ -12,6 +13,7 @@ use crate::v4l2::videodev::v4l2_ext_controls;
 use crate::v4l_sys::*;
 
 /// Linux capture device abstraction
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Device {
     /// Raw handle
     handle: Arc<Handle>,
@@ -34,16 +36,7 @@ impl Device {
     /// let dev = Device::new(0);
     /// ```
     pub fn new(index: usize) -> io::Result<Self> {
-        let path = format!("{}{}", "/dev/video", index);
-        let fd = v4l2::open(path, libc::O_RDWR | libc::O_NONBLOCK)?;
-
-        if fd == -1 {
-            return Err(io::Error::last_os_error());
-        }
-
-        Ok(Device {
-            handle: Arc::new(Handle::new(fd)),
-        })
+        Self::with_path(format!("/dev/video{index}"))
     }
 
     /// Returns a capture device by path
@@ -63,10 +56,6 @@ impl Device {
     pub fn with_path<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let fd = v4l2::open(&path, libc::O_RDWR | libc::O_NONBLOCK)?;
 
-        if fd == -1 {
-            return Err(io::Error::last_os_error());
-        }
-
         Ok(Device {
             handle: Arc::new(Handle::new(fd)),
         })
@@ -79,15 +68,15 @@ impl Device {
 
     /// Returns video4linux framework defined information such as card, driver, etc.
     pub fn query_caps(&self) -> io::Result<Capabilities> {
+        let mut v4l2_caps = MaybeUninit::<v4l2_capability>::uninit();
         unsafe {
-            let mut v4l2_caps: v4l2_capability = mem::zeroed();
             v4l2::ioctl(
                 self.handle().fd(),
                 v4l2::vidioc::VIDIOC_QUERYCAP,
-                &mut v4l2_caps as *mut _ as *mut std::os::raw::c_void,
+                v4l2_caps.as_mut_ptr().cast(),
             )?;
 
-            Ok(Capabilities::from(v4l2_caps))
+            Ok(Capabilities::from(v4l2_caps.assume_init()))
         }
     }
 
@@ -314,6 +303,130 @@ impl Device {
             )
         }
     }
+
+    /// Enumerate video inputs
+    ///
+    /// <https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/vidioc-enuminput.html>
+
+    #[doc(alias = "VIDIOC_ENUMINPUT")]
+    pub fn enum_inputs(&self) -> io::Result<Vec<v4l2_input>> {
+        (0..)
+            .scan((), |(), index| {
+                let mut input = v4l2_input {
+                    index,
+                    ..unsafe { mem::zeroed() }
+                };
+
+                match unsafe {
+                    v4l2::ioctl(
+                        self.handle().fd(),
+                        v4l2::vidioc::VIDIOC_ENUMINPUT,
+                        &mut input as *mut _ as *mut _,
+                    )
+                } {
+                    Ok(()) => Some(Ok(input)),
+                    Err(e) if e.kind() == io::ErrorKind::InvalidInput => None,
+                    // TODO: this would keep collecting errors until we finally bail with InvalidInput...
+                    Err(e) => Some(Err(e)),
+                }
+            })
+            .collect::<io::Result<Vec<v4l2_input>>>()
+    }
+
+    /// Query the current video input
+    ///
+    /// Information about this video input is available via [`Self::enum_inputs()`].
+    ///
+    /// <https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/vidioc-g-input.html>
+    #[doc(alias = "VIDIOC_G_INPUT")]
+    pub fn input(&self) -> io::Result<u32> {
+        let mut index = MaybeUninit::<u32>::uninit();
+        unsafe {
+            v4l2::ioctl(
+                self.handle().fd(),
+                v4l2::vidioc::VIDIOC_G_INPUT,
+                index.as_mut_ptr().cast(),
+            )
+        }?;
+
+        Ok(unsafe { index.assume_init() })
+    }
+
+    /// Select the current video input
+    ///
+    /// Information about available video inputs is available via [`Self::enum_inputs()`].
+    ///
+    /// <https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/vidioc-g-input.html>
+    #[doc(alias = "VIDIOC_S_INPUT")]
+    pub fn set_input(&self, mut index: u32) -> io::Result<()> {
+        unsafe {
+            v4l2::ioctl(
+                self.handle().fd(),
+                v4l2::vidioc::VIDIOC_S_INPUT,
+                <*mut _>::cast(&mut index),
+            )
+        }
+    }
+
+    #[doc(alias = "VIDIOC_ENUMOUTPUT")]
+    pub fn enum_outputs(&self) -> io::Result<Vec<v4l2_output>> {
+        (0..)
+            .scan((), |(), index| {
+                let mut output = v4l2_output {
+                    index,
+                    ..unsafe { mem::zeroed() }
+                };
+
+                match unsafe {
+                    v4l2::ioctl(
+                        self.handle().fd(),
+                        v4l2::vidioc::VIDIOC_ENUMOUTPUT,
+                        &mut output as *mut _ as *mut _,
+                    )
+                } {
+                    Ok(()) => Some(Ok(output)),
+                    Err(e) if e.kind() == io::ErrorKind::InvalidInput => None,
+                    // TODO: this would keep collecting errors until we finally bail with Invalidoutput...
+                    Err(e) => Some(Err(e)),
+                }
+            })
+            .collect::<io::Result<Vec<v4l2_output>>>()
+    }
+
+    /// Query the current video output
+    ///
+    /// Information about this video output is available via [`Self::enum_outputs()`].
+    ///
+    /// <https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/vidioc-g-output.html>
+    #[doc(alias = "VIDIOC_G_OUTPUT")]
+    pub fn output(&self) -> io::Result<u32> {
+        let mut index = MaybeUninit::<u32>::uninit();
+        unsafe {
+            v4l2::ioctl(
+                self.handle().fd(),
+                v4l2::vidioc::VIDIOC_G_OUTPUT,
+                index.as_mut_ptr().cast(),
+            )
+        }?;
+
+        Ok(unsafe { index.assume_init() })
+    }
+
+    /// Select the current video output
+    ///
+    /// Information about available video outputs is available via [`Self::enum_outputs()`].
+    ///
+    /// <https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/vidioc-g-output.html>
+    #[doc(alias = "VIDIOC_S_OUTPUT")]
+    pub fn set_output(&self, mut index: u32) -> io::Result<()> {
+        unsafe {
+            v4l2::ioctl(
+                self.handle().fd(),
+                v4l2::vidioc::VIDIOC_S_OUTPUT,
+                <*mut _>::cast(&mut index),
+            )
+        }
+    }
 }
 
 impl io::Read for Device {
@@ -358,6 +471,8 @@ impl io::Write for Device {
 /// Device handle for low-level access.
 ///
 /// Acquiring a handle facilitates (possibly mutating) interactions with the device.
+// TODO: Replace with OwnedFd.
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Handle {
     fd: std::os::raw::c_int,
 }

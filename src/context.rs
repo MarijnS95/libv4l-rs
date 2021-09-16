@@ -35,7 +35,14 @@ pub fn enum_devices() -> Vec<Node> {
     devices
 }
 
-/// Represents a video4linux device node
+/// Represents an unopened video4linux device node
+///
+/// Open the video device using:
+/// ```no_run
+/// # let node = enum_devices()[0];
+/// Device::with_path(node.path())?;
+///```
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Node {
     /// Device node path
     path: PathBuf,
@@ -69,6 +76,7 @@ impl Node {
 
     /// Returns the index of the device node
     pub fn index(&self) -> usize {
+        // TODO: Why not `file_name().strip_prefix("video").unwrap().parse()`?
         let file_name = self.path.file_name().unwrap();
 
         let mut index_str = String::new();
@@ -87,7 +95,7 @@ impl Node {
     /// Returns name of the device by parsing its sysfs entry
     pub fn name(&self) -> Option<String> {
         let index = self.index();
-        let path = format!("{}{}{}", "/sys/class/video4linux/video", index, "/name");
+        let path = format!("/sys/class/video4linux/video{index}/name");
         let name = fs::read_to_string(path);
         match name {
             Ok(name) => Some(name.trim().to_string()),

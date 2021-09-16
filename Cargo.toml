@@ -29,3 +29,7 @@ members = [
     "v4l-sys",
     "v4l2-sys",
 ]
+
+[[example]]
+name = "media"
+required-features = ["v4l2"]

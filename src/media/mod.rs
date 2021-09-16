@@ -5,9 +5,11 @@
 
 mod device;
 mod entity;
+mod link;
 
 pub use device::{Device, DeviceInfo};
 pub use entity::{EntityDesc, EntityType};
+pub use link::{Link, LinkFlags, Pad, PadFlags};
 
 // TODO: Move version helper elsewhere, reuse for v4l2_capability
 

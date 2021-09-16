@@ -61,6 +61,33 @@ impl Device {
             })
             .collect::<io::Result<Vec<_>>>()
     }
+
+    #[doc(alias = "MEDIA_IOC_ENUM_LINKS")]
+    pub fn enum_links(&self, entity: &EntityDesc) -> io::Result<Vec<Link>> {
+        // todo maybeunit?
+        let mut pads = vec![unsafe { mem::zeroed() }; entity.pads as usize];
+        let mut links = vec![unsafe { mem::zeroed() }; entity.links as usize];
+        let mut links_enum = media_links_enum {
+            entity: entity.id,
+            pads: pads.as_mut_ptr(),
+            links: links.as_mut_ptr(),
+            reserved: [0; 4],
+        };
+
+        unsafe {
+            v4l2::ioctl(
+                self.handle.fd(),
+                v4l2::vidioc::MEDIA_IOC_ENUM_LINKS,
+                <*mut _>::cast(&mut links_enum),
+            )
+        }?;
+
+        // TODO: Check if there are any pads not involved in a link?
+        // (ie. cannot possibly be connected to anything?)
+        // dbg!(pads.into_iter().map(|l| l.into()).collect::<Vec<Pad>>());
+
+        Ok(links.into_iter().map(|l| l.into()).collect())
+    }
 }
 
 /// Device info

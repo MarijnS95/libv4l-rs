@@ -84,6 +84,8 @@ pub mod format;
 pub mod fraction;
 pub mod frameinterval;
 pub mod framesize;
+#[cfg(feature = "v4l2-sys")]
+pub mod media;
 pub mod memory;
 pub mod parameters;
 pub mod timestamp;

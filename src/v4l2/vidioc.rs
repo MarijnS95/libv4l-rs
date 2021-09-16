@@ -148,3 +148,21 @@ pub const VIDIOC_G_ENC_INDEX: _IOC_TYPE = _IOR!(b'V', 76, v4l2_enc_idx);
 pub const VIDIOC_ENCODER_CMD: _IOC_TYPE = _IOWR!(b'V', 77, v4l2_encoder_cmd);
 pub const VIDIOC_TRY_ENCODER_CMD: _IOC_TYPE = _IOWR!(b'V', 78, v4l2_encoder_cmd);
 pub const VIDIOC_QUERY_EXT_CTRL: _IOC_TYPE = _IOWR!(b'V', 103, v4l2_query_ext_ctrl);
+
+// TODO: move these to media_ioc.rs, and make the types/macros generic?
+#[cfg(feature = "v4l2-sys")]
+mod media {
+    pub use super::*;
+    pub const MEDIA_IOC_DEVICE_INFO: _IOC_TYPE = _IOWR!('|', 0x00, media_device_info);
+    pub const MEDIA_IOC_ENUM_ENTITIES: _IOC_TYPE = _IOWR!('|', 0x01, media_entity_desc);
+    pub const MEDIA_IOC_ENUM_LINKS: _IOC_TYPE = _IOWR!('|', 0x02, media_links_enum);
+    pub const MEDIA_IOC_SETUP_LINK: _IOC_TYPE = _IOWR!('|', 0x03, media_link_desc);
+    pub const MEDIA_IOC_G_TOPOLOGY: _IOC_TYPE = _IOWR!('|', 0x04, media_v2_topology);
+    pub const MEDIA_IOC_REQUEST_ALLOC: _IOC_TYPE = _IOR!('|', 0x05, i32);
+
+    pub const MEDIA_REQUEST_IOC_QUEUE: _IOC_TYPE = _IO!('|', 0x80);
+    pub const MEDIA_REQUEST_IOC_REINIT: _IOC_TYPE = _IO!('|', 0x81);
+}
+
+#[cfg(feature = "v4l2-sys")]
+pub use media::*;

@@ -54,7 +54,7 @@ impl Device {
     /// let dev = Device::with_path("/dev/video0");
     /// ```
     pub fn with_path<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let fd = v4l2::open(&path, libc::O_RDWR | libc::O_NONBLOCK)?;
+        let fd = v4l2::open(path, libc::O_RDWR | libc::O_NONBLOCK)?;
 
         Ok(Device {
             handle: Arc::new(Handle::new(fd)),
@@ -474,7 +474,7 @@ impl io::Write for Device {
 // TODO: Replace with OwnedFd.
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Handle {
-    fd: std::os::raw::c_int,
+    pub(crate) fd: std::os::raw::c_int,
 }
 
 impl Handle {

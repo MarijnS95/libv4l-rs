@@ -1,4 +1,5 @@
 use crate::{v4l_sys::*, wrap_c_str_slice_until_nul};
+use std::{io, path::PathBuf};
 
 // TODO: How to best represent these?
 // /// Holds the `dev` union member from [`media_entity_desc`]
@@ -84,5 +85,31 @@ impl From<media_entity_desc> for EntityDesc {
             pads: desc.pads,
             links: desc.links,
         }
+    }
+}
+
+impl EntityDesc {
+    /// Returns the device path for this entity.
+    ///
+    /// For [`EntityType::Dev`] this is `/dev/char/{major}:{minor}` which is usually a symlink to
+    /// `/dev/videoX`.
+    pub fn device_path(&self) -> Option<PathBuf> {
+        match self.entity_type {
+            EntityType::Dev { major, minor } => {
+                Some(PathBuf::from(format!("/dev/char/{major}:{minor}")))
+            }
+            // EntityType::Alsa {
+            //     card,
+            //     device,
+            //     subdevice,
+            // } => todo!(),
+            // EntityType::Fb { major, minor } => todo!(),
+            _ => None,
+        }
+    }
+
+    /// Returns the video device for this entity, if it is a [`EntityType::Dev`].
+    pub fn device(&self) -> io::Result<Option<crate::Device>> {
+        self.device_path().map(crate::Device::with_path).transpose()
     }
 }

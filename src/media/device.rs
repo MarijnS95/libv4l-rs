@@ -124,6 +124,22 @@ impl Device {
 
         Ok(())
     }
+
+    /// Allocates a request queue. Various V4L2 APIs accept its `fd` in the `request_fd` field for
+    /// later execution.
+    #[doc(alias = "MEDIA_IOC_REQUEST_ALLOC")]
+    pub fn request_alloc_queue(&self) -> io::Result<Request> {
+        let mut fd = 0;
+        unsafe {
+            v4l2::ioctl(
+                self.handle.fd(),
+                v4l2::vidioc::MEDIA_IOC_REQUEST_ALLOC,
+                &mut fd as *mut _ as *mut std::os::raw::c_void,
+            )
+        }?;
+
+        Ok(Request::new(Handle { fd }))
+    }
 }
 
 /// Device info

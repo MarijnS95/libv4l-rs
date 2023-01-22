@@ -161,7 +161,7 @@ pub struct Description {
     /// Control flags
     pub flags: Flags,
 
-    /// Items for menu controls (only valid if typ is a menu type)
+    /// Items for menu controls (only valid if [`Self::typ`] is a menu type)
     pub items: Option<Vec<(u32, MenuItem)>>,
 }
 

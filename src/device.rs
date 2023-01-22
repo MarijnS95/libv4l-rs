@@ -113,6 +113,7 @@ impl Device {
                         if control.typ == control::Type::Menu
                             || control.typ == control::Type::IntegerMenu
                         {
+                            dbg!(&control);
                             let mut items = Vec::new();
 
                             for i in (v4l2_ctrl.minimum..=v4l2_ctrl.maximum)
@@ -210,7 +211,7 @@ impl Device {
     }
 
     /// Convenience method to get the current control for an ID.
-    /// Requires an extra syscall compared to [`control`].
+    /// Requires an extra syscall compared to [`Device::control()`].
     ///
     /// # Arguments
     ///

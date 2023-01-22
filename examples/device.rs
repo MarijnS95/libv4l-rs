@@ -1,6 +1,6 @@
 use std::io;
 
-use v4l::prelude::*;
+use v4l::{control::Value, prelude::*};
 
 fn main() -> io::Result<()> {
     let path = "/dev/video0";
@@ -20,13 +20,36 @@ fn main() -> io::Result<()> {
         }
     }
     for ctrl in controls {
-        println!(
-            "{:indent$} : [{}, {}]",
-            ctrl.name,
-            ctrl.minimum,
-            ctrl.maximum,
-            indent = max_name_len
-        );
+        if ctrl.typ == v4l::control::Type::CtrlClass {
+            println!();
+            println!("{}", ctrl.name);
+            println!();
+        } else if let Some(items) = &ctrl.items {
+            assert_eq!(ctrl.typ, v4l::control::Type::Menu);
+            let value = dev.control(&ctrl)?;
+            let Value::Integer(index) = value.value else {
+                panic!("Menu value must be integer index")
+            };
+            let item = items.iter().find(|(i, _)| *i == index as u32).expect("");
+            // dbg!(&value, items);
+            println!(
+                "\t{:indent$} : {} = {}",
+                ctrl.name,
+                index,
+                item.1,
+                indent = max_name_len
+            );
+        } else {
+            let value = dev.control(&ctrl)?;
+            println!(
+                "\t{:indent$} : [{}, {}] = {:?}",
+                ctrl.name,
+                ctrl.minimum,
+                ctrl.maximum,
+                value.value,
+                indent = max_name_len
+            );
+        }
     }
 
     Ok(())

@@ -140,21 +140,22 @@ impl From<v4l2_buffer> for Metadata {
     }
 }
 
-impl Into<v4l2_buffer> for Metadata {
-    fn into(self) -> v4l2_buffer {
-        unsafe {
-            v4l2_buffer {
-                index: self.index,
-                type_: self.type_,
-                bytesused: self.bytesused,
-                flags: self.flags.into(),
-                field: self.field,
-                timestamp: self.timestamp.into(),
-                sequence: self.sequence,
-                memory: self.memory as u32,
-                length: self.length,
-                ..mem::zeroed()
-            }
+impl From<Metadata> for v4l2_buffer {
+    fn from(buf: Metadata) -> Self {
+        v4l2_buffer {
+            index: buf.index,
+            type_: buf.type_,
+            bytesused: buf.bytesused,
+            flags: buf.flags.into(),
+            field: buf.field,
+            timestamp: buf.timestamp.into(),
+            sequence: buf.sequence,
+            memory: buf.memory as u32,
+            length: buf.length,
+            timecode: todo!("This conversion is lossy!"),
+            m: todo!("Lossy!"),
+            reserved2: 0u32,
+            __bindgen_anon_1: v4l2_sys::v4l2_buffer__bindgen_ty_2 { request_fd: 0 },
         }
     }
 }

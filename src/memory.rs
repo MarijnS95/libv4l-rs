@@ -38,7 +38,7 @@ impl fmt::Display for Memory {
             Memory::Mmap => write!(f, "memory-mapped"),
             Memory::UserPtr => write!(f, "user pointer"),
             Memory::Overlay => write!(f, "overlay"),
-            Memory::DmaBuf => write!(f, "DMA buffered"),
+            Memory::DmaBuf => write!(f, "DMA buffer"),
         }
     }
 }

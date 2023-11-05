@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::mem::MaybeUninit;
 use std::time::Duration;
 use std::{io, mem, os::fd::AsRawFd, sync::Arc};
 
@@ -18,7 +19,7 @@ pub struct Stream<'a> {
     arena: Arena<'a>,
     arena_index: usize,
     buf_type: Type,
-    buf_meta: Vec<Metadata>,
+    buf_meta: Vec<MaybeUninit<Metadata>>,
     timeout: Option<i32>,
 
     active: bool,
@@ -51,8 +52,7 @@ impl<'a> Stream<'a> {
     pub fn with_buffers(dev: &Device, buf_type: Type, buf_count: u32) -> io::Result<Self> {
         let mut arena = Arena::new(dev.handle(), buf_type);
         let count = arena.allocate(buf_count)?;
-        let mut buf_meta = Vec::new();
-        buf_meta.resize(count as usize, unsafe { Metadata { ..mem::zeroed() } });
+        let mut buf_meta = vec![MaybeUninit::uninit(); count as usize];
 
         Ok(Stream {
             handle: dev.handle(),
@@ -175,7 +175,7 @@ impl<'a, 'b> CaptureStream<'b> for Stream<'a> {
             )?;
         }
         self.arena_index = v4l2_buf.index as usize;
-        self.buf_meta[self.arena_index] = Metadata::from(v4l2_buf);
+        self.buf_meta[self.arena_index].write(Metadata::from(v4l2_buf));
 
         Ok(self.arena_index)
     }
@@ -198,25 +198,29 @@ impl<'a, 'b> CaptureStream<'b> for Stream<'a> {
         // will always be valid.
         let bytes = &self.arena.bufs[self.arena_index];
         let meta = &self.buf_meta[self.arena_index];
+        // SAFETY
+        let meta = unsafe { meta.assume_init_ref() };
         Ok((bytes, meta))
     }
 }
 
 impl<'a, 'b> OutputStream<'b> for Stream<'a> {
     fn queue(&mut self, index: usize) -> io::Result<()> {
+        // TODO: This isn't safe and should use Option::unwrap
+        let buf_meta = unsafe { self.buf_meta[index].assume_init_ref() };
+        // .expect("The buffer at {index} was never dequeued first");
         let mut v4l2_buf = v4l2_buffer {
             index: index as u32,
-            ..self.buffer_desc()
-        };
-        unsafe {
             // output settings
             //
             // MetaData.bytesused is initialized to 0. For an output device, when bytesused is
             // set to 0 v4l2 will set it to the size of the plane:
             // https://www.kernel.org/doc/html/v4.15/media/uapi/v4l/buffer.html#struct-v4l2-plane
-            v4l2_buf.bytesused = self.buf_meta[index].bytesused;
-            v4l2_buf.field = self.buf_meta[index].field;
-
+            bytesused: buf_meta.bytesused,
+            field: buf_meta.field,
+            ..self.buffer_desc()
+        };
+        unsafe {
             if self
                 .handle
                 .poll(libc::POLLOUT, self.timeout.unwrap_or(-1))?
@@ -247,7 +251,7 @@ impl<'a, 'b> OutputStream<'b> for Stream<'a> {
             )?;
         }
         self.arena_index = v4l2_buf.index as usize;
-        self.buf_meta[self.arena_index] = Metadata::from(v4l2_buf);
+        self.buf_meta[self.arena_index].write(Metadata::from(v4l2_buf));
 
         Ok(self.arena_index)
     }

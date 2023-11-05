@@ -201,6 +201,7 @@ impl<S> Queue<Mmap<'_>, S> {
     /// * `buf` - Buffer metadata
     pub fn enqueue(&mut self, buf: &Metadata) -> io::Result<()> {
         let mut buf: v4l2_buffer = (*buf).into();
+        // TODO: Metadata already contains something like this!
         buf.memory = Memory::Mmap as u32;
 
         self.qbuf(&mut buf)

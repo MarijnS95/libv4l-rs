@@ -107,3 +107,12 @@ pub mod prelude {
     pub use crate::device::Device;
     pub use crate::io::{mmap::Stream as MmapStream, userptr::Stream as UserptrStream};
 }
+
+#[inline]
+pub(crate) fn wrap_c_str_slice_until_nul(
+    str: &[core::ffi::c_char],
+) -> Result<&core::ffi::CStr, core::ffi::FromBytesUntilNulError> {
+    // SAFETY: The cast from c_char to u8 is ok because a c_char is always one byte.
+    let bytes = unsafe { core::slice::from_raw_parts(str.as_ptr().cast(), str.len()) };
+    core::ffi::CStr::from_bytes_until_nul(bytes)
+}

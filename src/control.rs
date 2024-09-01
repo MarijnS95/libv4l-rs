@@ -1,7 +1,7 @@
 use std::convert::{TryFrom, TryInto};
-use std::{ffi, fmt, mem, str};
+use std::{fmt, mem, str};
 
-use crate::v4l_sys::*;
+use crate::{v4l_sys::*, wrap_c_str_slice_until_nul};
 
 /// Control data type
 #[allow(clippy::unreadable_literal)]
@@ -185,7 +185,8 @@ impl From<v4l2_query_ext_ctrl> for Description {
         Self {
             id: ctrl.id,
             typ: Type::from(ctrl.type_),
-            name: unsafe { ffi::CStr::from_ptr(ctrl.name.as_ptr()) }
+            name: wrap_c_str_slice_until_nul(&ctrl.name)
+                .unwrap()
                 .to_str()
                 .unwrap()
                 .to_string(),

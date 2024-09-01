@@ -88,6 +88,42 @@ impl Device {
 
         Ok(links.into_iter().map(|l| l.into()).collect())
     }
+
+    /// Enables or disables a link as per [`LinkFlags::ENABLED`]. Links marked with [`LinkFlags::IMMUTABLE`] can not be enabled or disabled.
+    ///
+    /// Link configuration has no side effect on other links. If an enabled link at the sink pad prevents the link from being enabled, the driver returns with an EBUSY error code.
+    ///
+    /// Only links marked with the [`LinkFlags::DYNAMIC`] link flag can be enabled/disabled while streaming media data. Attempting to enable or disable a streaming non-dynamic link will return an EBUSY error code.
+    ///
+    /// See also <https://www.kernel.org/doc/html/latest/userspace-api/media/mediactl/media-ioc-setup-link.html>
+    // TODO: Make a better API for this? Bit weird that the caller can also
+    // play with the link flags on their own.
+    #[doc(alias = "MEDIA_IOC_SETUP_LINK")]
+    pub fn setup_link(&self, mut link: Link, enabled: bool) -> io::Result<()> {
+        assert!(
+            !link.flags.contains(LinkFlags::IMMUTABLE),
+            "Only mutable links can be modified"
+        );
+        // TODO: Check this assert only if the link is currently actively streaming:
+        // assert!(
+        //     link.flags.contains(LinkFlags::DYNAMIC),
+        //     "Only dynamic links can be enabled/disabled"
+        // );
+
+        link.flags.set(LinkFlags::ENABLED, enabled);
+
+        let mut link: media_link_desc = link.into();
+
+        unsafe {
+            v4l2::ioctl(
+                self.handle.fd(),
+                v4l2::vidioc::MEDIA_IOC_SETUP_LINK,
+                <*mut _>::cast(&mut link),
+            )
+        }?;
+
+        Ok(())
+    }
 }
 
 /// Device info

@@ -34,6 +34,17 @@ impl From<media_pad_desc> for Pad {
     }
 }
 
+impl From<Pad> for media_pad_desc {
+    fn from(pad: Pad) -> Self {
+        Self {
+            entity: pad.entity,
+            index: pad.index,
+            flags: pad.flags.bits(),
+            reserved: [0; 2],
+        }
+    }
+}
+
 bitflags! {
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     #[doc(alias = "MEDIA_LNK_FL")]
@@ -90,6 +101,17 @@ impl From<media_link_desc> for Link {
             source: desc.source.into(),
             sink: desc.sink.into(),
             flags: LinkFlags::from_bits_retain(desc.flags),
+        }
+    }
+}
+
+impl From<Link> for media_link_desc {
+    fn from(link: Link) -> Self {
+        Self {
+            source: link.source.into(),
+            sink: link.sink.into(),
+            flags: link.flags.bits(),
+            reserved: [0; 2],
         }
     }
 }
